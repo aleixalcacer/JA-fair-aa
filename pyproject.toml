@@ -1,0 +1,17 @@
+[project]
+name = "fair-archetypes"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy",
+    "matplotlib",
+    "seaborn",
+    "pypalettes",
+    "scikit-learn",
+    "tqdm",
+    "pandas",
+    "archetypes",
+    "ipykernel",
+]

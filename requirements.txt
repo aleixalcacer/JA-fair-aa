@@ -1,5 +1,0 @@
-notebook
-archetypes @ git+https://github.com/aleixalcacer/archetypes@fair
-tqdm
-pandas
-seaborn

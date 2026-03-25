@@ -1,29 +1,36 @@
 # Fair Archetypal Analysis
 
+Code, experiments, and results for the paper *Incorporating Fairness Constraints into Archetypal Analysis*.
+
+## Repository structure
+
+```
+fair-archetypes/
+├── src/                    # Shared algorithms and metrics
+│   ├── fair_pca.py         # FairPCA baseline
+│   └── metrics.py          # Evaluation metrics (MMD, ...)
+├── data/
+│   └── ansur/              # ANSUR anthropometric dataset
+├── notebooks/              # Jupyter notebooks (exploratory)
+│   ├── exemple.ipynb           # Basic AA on synthetic data
+│   ├── exemple_multiple.ipynb  # Multiple synthetic scenarios
+│   ├── exemple_moons.ipynb     # Moons synthetic dataset
+│   ├── baselines.ipynb         # AA vs FairAA vs FairPCA+AA
+│   └── ansur.ipynb             # Real-data experiment (ANSUR)
+├── experiments/            # Runnable Python scripts
+│   ├── baselines.py        # AA vs FairAA vs FairPCA+AA
+│   ├── scaling.py          # Computation time vs n
+│   └── scaling_nd.py       # Computation time vs n and d
+└── figures/                # Generated figures (PDF)
+```
+
 ## Algorithms
 
-The proposed algorithms are implemented in Python, leveraging popular libraries such as NumPy, scikit-learn, and PyTorch. The core methods for fair archetypal analysis are provided in the Jupyter notebooks included in this repository. These algorithms aim to perform archetypal analysis while ensuring fairness with respect to sensitive attributes.
+- **Archetypal Analysis (AA)**: decomposes data into convex combinations of extremal points (archetypes).
+- **FairAA**: AA with fairness constraints to ensure fair representation across sensitive groups.
+- **FairPCA + AA**: dimensionality reduction via Fair PCA followed by AA.
 
-- **Archetypal Analysis**: Decomposes data into convex combinations of extremal points (archetypes).
-- **Fairness Constraints**: Methods are adapted to mitigate bias and ensure fair representation across groups.
-
-## Experiments
-
-A set of experiments is provided to demonstrate the effectiveness and fairness of the proposed algorithms. All experiments can be found in the Jupyter notebooks in this repository.
-
-### Synthetic data
-
-- **exemple.ipynb**: Demonstrates the basic archetypal analysis algorithm on synthetic datasets.
-- **exemple_multiple.ipynb**: Explores the behavior of the algorithm under multiple synthetic scenarios.
-- **exemple_moons.ipynb**: Applies the algorithm to the "moons" synthetic dataset, commonly used for clustering and fairness evaluation.
-
-### Real data
-
-- **ansur.ipynb**: Applies fair archetypal analysis to the ANSUR dataset, a real-world anthropometric dataset, to evaluate fairness and interpretability in practical scenarios.
-
----
-
-## Getting Started
+## Getting started
 
 1. **Clone the repository:**
    ```bash
@@ -31,28 +38,29 @@ A set of experiments is provided to demonstrate the effectiveness and fairness o
    cd JA-fair-aa
    ```
 
-2. **Install dependencies:**
-   It is recommended to use a virtual environment.
+2. **Install dependencies with uv:**
    ```bash
-   pip install -r requirements.txt
+   uv sync
    ```
 
-3. **Run the notebooks:**
-   Open any of the provided `.ipynb` files in Jupyter Notebook or JupyterLab to reproduce the experiments.
+3. **Run a notebook:**
+   Open any `.ipynb` in `notebooks/` with JupyterLab or VS Code.
 
+4. **Run an experiment script:**
+   ```bash
+   uv run python experiments/baselines.py
+   ```
 
 ## Citation
 
-If you use this code or algorithms in your research, please cite:
-
 ```bibtex
 @misc{alcacer2025incorporatingfairnessconstraintsarchetypal,
-      title={Incorporating Fairness Constraints into Archetypal Analysis}, 
+      title={Incorporating Fairness Constraints into Archetypal Analysis},
       author={Aleix Alcacer and Irene Epifanio},
       year={2025},
       eprint={2507.12021},
       archivePrefix={arXiv},
       primaryClass={stat.ML},
-      url={https://arxiv.org/abs/2507.12021}, 
+      url={https://arxiv.org/abs/2507.12021},
 }
 ```
