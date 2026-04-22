@@ -17,7 +17,7 @@ class FairAA_MMD(TransformerMixin, BaseEstimator):
 
     Solves::
 
-        min_{A,B}  ||X - A B X||_F^2  +  lambda_ * MMD^2(A[z=0], A[z=1])
+        min_{A,B}  ||X - A B X||_F^2  +  fairness_const * MMD^2(A[z=0], A[z=1])
 
     where MMD is computed with a mixture of RBF kernels::
 
@@ -27,7 +27,7 @@ class FairAA_MMD(TransformerMixin, BaseEstimator):
     ----------
     n_archetypes : int
         Number of archetypes.
-    lambda_ : float, default=1.0
+    fairness_const : float, default=1.0
         Fairness regularisation weight.
     sigmas : list of float, default=[0.1, 1.0, 10.0]
         RBF kernel bandwidths.
@@ -54,7 +54,7 @@ class FairAA_MMD(TransformerMixin, BaseEstimator):
 
     _parameter_constraints: dict = {
         "n_archetypes": [Interval(Integral, 1, None, closed="left")],
-        "lambda_": [Interval(Real, 0, None, closed="left")],
+        "fairness_const": [Interval(Real, 0, None, closed="left")],
         "max_iter": [Interval(Integral, 1, None, closed="left")],
         "tol": [Interval(Real, 0, None, closed="left")],
         "init": [
@@ -73,7 +73,7 @@ class FairAA_MMD(TransformerMixin, BaseEstimator):
         self,
         n_archetypes,
         *,
-        lambda_=1.0,
+        fairness_const=1.0,
         sigmas=None,
         max_iter=300,
         tol=1e-4,
@@ -87,7 +87,7 @@ class FairAA_MMD(TransformerMixin, BaseEstimator):
         random_state=None,
     ):
         self.n_archetypes = n_archetypes
-        self.lambda_ = lambda_
+        self.fairness_const = fairness_const
         self.sigmas = sigmas
         self.max_iter = max_iter
         self.tol = tol
@@ -133,15 +133,15 @@ class FairAA_MMD(TransformerMixin, BaseEstimator):
 
         return A, B, archetypes
 
-    def fit(self, X, y=None, z=None):
-        self.fit_transform(X, y, z)
+    def fit(self, X, y=None, Z=None):
+        self.fit_transform(X, y, Z)
         return self
 
-    def transform(self, X, z):
+    def transform(self, X, Z):
         check_is_fitted(self)
         X = validate_data(self, X, dtype=[np.float64, np.float32], reset=False)
         X = np.ascontiguousarray(X)
-        z = np.asarray(z, dtype=np.int32)
+        z = np.asarray(Z, dtype=np.int32)
         archetypes = self.archetypes_
         sigmas = self.sigmas if self.sigmas is not None else [0.1, 1.0, 10.0]
 
@@ -159,7 +159,7 @@ class FairAA_MMD(TransformerMixin, BaseEstimator):
             X,
             z,
             archetypes,
-            lambda_=self.lambda_,
+            fairness_const=self.fairness_const,
             sigmas=sigmas,
             max_iter=self.max_iter,
             tol=self.tol,
@@ -168,11 +168,11 @@ class FairAA_MMD(TransformerMixin, BaseEstimator):
         return A
 
     @_fit_context(prefer_skip_nested_validation=True)
-    def fit_transform(self, X, y=None, z=None, **params):
+    def fit_transform(self, X, y=None, Z=None, **params):
         X = validate_data(self, X, dtype=[np.float64, np.float32])
         self._check_params_vs_data(X)
         X = np.ascontiguousarray(X)
-        z = np.asarray(z, dtype=np.int32)
+        z = np.asarray(Z, dtype=np.int32)
         sigmas = self.sigmas if self.sigmas is not None else [0.1, 1.0, 10.0]
 
         if self.n_archetypes == 1:
@@ -181,7 +181,7 @@ class FairAA_MMD(TransformerMixin, BaseEstimator):
             B_ = np.full((self.n_archetypes, n_samples), 1 / n_samples, dtype=X.dtype)
             A_ = np.ones((n_samples, self.n_archetypes), dtype=X.dtype)
             rss = float(squared_norm(A_ @ archetypes_ - X))
-            mmd = float(self.lambda_ * _mmd_squared(A_[z == 0], A_[z == 1], sigmas))
+            mmd = float(self.fairness_const * _mmd_squared(A_[z == 0], A_[z == 1], sigmas))
             n_iter_ = 0
             loss_history_ = {
                 "total": [rss + mmd],
@@ -213,7 +213,7 @@ class FairAA_MMD(TransformerMixin, BaseEstimator):
                     B,
                     z,
                     archetypes,
-                    lambda_=self.lambda_,
+                    fairness_const=self.fairness_const,
                     sigmas=sigmas,
                     max_iter=self.max_iter,
                     tol=self.tol,
@@ -272,9 +272,9 @@ def _mmd_squared(S0, S1, sigmas):
     return mmd2
 
 
-def _mmd_loss(A, z, lambda_, sigmas):
+def _mmd_loss(A, z, fairness_const, sigmas):
     mask0 = z == 0
-    return float(lambda_ * _mmd_squared(A[mask0], A[~mask0], sigmas))
+    return float(fairness_const * _mmd_squared(A[mask0], A[~mask0], sigmas))
 
 
 def _mmd_grad_A(A, z, sigmas):
@@ -318,43 +318,43 @@ def _mmd_grad_A(A, z, sigmas):
 # ── Fit-transform entry points (mirrors pgd_fit_transform / pseudo_pgd_fit_transform) ──
 
 
-def mmd_transform(X, z, archetypes, *, lambda_, sigmas, max_iter, tol, **params):
+def mmd_transform(X, z, archetypes, *, fairness_const, sigmas, max_iter, tol, **params):
     A = X @ np.linalg.pinv(archetypes)
     unit_simplex_proj(A)
     A, _, _, _, _, _ = _mmd_optimize_aa(
         X, A, None, z, archetypes,
-        lambda_=lambda_, sigmas=sigmas,
+        fairness_const=fairness_const, sigmas=sigmas,
         max_iter=max_iter, tol=tol, verbose=False,
         update_B=False, pseudo_pgd=False, **params,
     )
     return A
 
 
-def mmd_pseudo_transform(X, z, archetypes, *, lambda_, sigmas, max_iter, tol, **params):
+def mmd_pseudo_transform(X, z, archetypes, *, fairness_const, sigmas, max_iter, tol, **params):
     A = X @ np.linalg.pinv(archetypes)
     l1_normalize_proj(A)
     A, _, _, _, _, _ = _mmd_optimize_aa(
         X, A, None, z, archetypes,
-        lambda_=lambda_, sigmas=sigmas,
+        fairness_const=fairness_const, sigmas=sigmas,
         max_iter=max_iter, tol=tol, verbose=False,
         update_B=False, pseudo_pgd=True, **params,
     )
     return A
 
 
-def mmd_fit_transform(X, A, B, z, archetypes, *, lambda_, sigmas, max_iter, tol, verbose, **params):
+def mmd_fit_transform(X, A, B, z, archetypes, *, fairness_const, sigmas, max_iter, tol, verbose, **params):
     return _mmd_optimize_aa(
         X, A, B, z, archetypes,
-        lambda_=lambda_, sigmas=sigmas,
+        fairness_const=fairness_const, sigmas=sigmas,
         max_iter=max_iter, tol=tol, verbose=verbose,
         update_B=True, pseudo_pgd=False, **params,
     )
 
 
-def mmd_pseudo_fit_transform(X, A, B, z, archetypes, *, lambda_, sigmas, max_iter, tol, verbose, **params):
+def mmd_pseudo_fit_transform(X, A, B, z, archetypes, *, fairness_const, sigmas, max_iter, tol, verbose, **params):
     return _mmd_optimize_aa(
         X, A, B, z, archetypes,
-        lambda_=lambda_, sigmas=sigmas,
+        fairness_const=fairness_const, sigmas=sigmas,
         max_iter=max_iter, tol=tol, verbose=verbose,
         update_B=True, pseudo_pgd=True, **params,
     )
@@ -370,7 +370,7 @@ def _mmd_optimize_aa(
     z,
     archetypes,
     *,
-    lambda_,
+    fairness_const,
     sigmas,
     max_iter,
     tol,
@@ -397,7 +397,7 @@ def _mmd_optimize_aa(
     B_new = np.empty_like(B) if B is not None else None
 
     rec0 = float(squared_norm(ABX))
-    mmd0 = _mmd_loss(A, z, lambda_, sigmas)
+    mmd0 = _mmd_loss(A, z, fairness_const, sigmas)
     rss = rec0 + mmd0
 
     loss_history = {
@@ -414,7 +414,7 @@ def _mmd_optimize_aa(
         # ── Update A ──────────────────────────────────────────────────────────
         rss, step_size_A = _mmd_update_A_inplace(
             X, A, z, BX, ABX, XXtBt, BXXtBt,
-            A_grad, A_new, pseudo_pgd, step_size_A, lambda_, sigmas,
+            A_grad, A_new, pseudo_pgd, step_size_A, fairness_const, sigmas,
             max_iter_optimizer, beta, rss,
         )
 
@@ -422,13 +422,13 @@ def _mmd_optimize_aa(
         if update_B:
             rss, step_size_B = _mmd_update_B_inplace(
                 X, A, B, z, BX, XXt, ABX, AtXXt, XXtBt, BXXtBt,
-                B_grad, B_new, pseudo_pgd, step_size_B, lambda_, sigmas,
+                B_grad, B_new, pseudo_pgd, step_size_B, fairness_const, sigmas,
                 max_iter_optimizer, beta, rss,
             )
 
         convergence = abs(loss_history["total"][-1] - rss) < tol
         rec = float(squared_norm(A @ BX - X))
-        mmd = _mmd_loss(A, z, lambda_, sigmas)
+        mmd = _mmd_loss(A, z, fairness_const, sigmas)
         loss_history["total"].append(rss)
         loss_history["reconstruction"].append(rec)
         loss_history["mmd"].append(mmd)
@@ -446,14 +446,14 @@ def _mmd_optimize_aa(
 
 def _mmd_update_A_inplace(
     X, A, z, BX, ABX, XXtBt, BXXtBt,
-    A_grad, A_new, pseudo_pgd, step_size_A, lambda_, sigmas,
+    A_grad, A_new, pseudo_pgd, step_size_A, fairness_const, sigmas,
     max_iter_optimizer, beta, rss,
 ):
     # Reconstruction gradient (identical to FairAA)
     A_grad = np.matmul(A, BXXtBt, out=A_grad)
     A_grad -= XXtBt
     # MMD gradient: kernel matrices recomputed each call (S changes every iteration)
-    A_grad += lambda_ * _mmd_grad_A(A, z, sigmas)
+    A_grad += fairness_const * _mmd_grad_A(A, z, sigmas)
 
     if pseudo_pgd:
         A_grad -= np.expand_dims(np.einsum("ij,ij->i", A, A_grad), axis=1)
@@ -468,7 +468,7 @@ def _mmd_update_A_inplace(
         project(A_new)
         ABX = np.matmul(A_new, BX, out=ABX)
         ABX -= X
-        rss_new = float(squared_norm(ABX)) + _mmd_loss(A_new, z, lambda_, sigmas)
+        rss_new = float(squared_norm(ABX)) + _mmd_loss(A_new, z, fairness_const, sigmas)
         improved = rss_new < rss
         if improved:
             step_size_A /= beta
@@ -484,7 +484,7 @@ def _mmd_update_A_inplace(
 
 def _mmd_update_B_inplace(
     X, A, B, z, BX, XXt, ABX, AtXXt, XXtBt, BXXtBt,
-    B_grad, B_new, pseudo_pgd, step_size_B, lambda_, sigmas,
+    B_grad, B_new, pseudo_pgd, step_size_B, fairness_const, sigmas,
     max_iter_optimizer, beta, rss,
 ):
     # Reconstruction gradient only — MMD does not depend on B
@@ -499,7 +499,7 @@ def _mmd_update_B_inplace(
         project = unit_simplex_proj
 
     # Precompute MMD term (constant during B update — A is fixed)
-    mmd_term = _mmd_loss(A, z, lambda_, sigmas)
+    mmd_term = _mmd_loss(A, z, fairness_const, sigmas)
 
     improved = False
     for _ in range(max_iter_optimizer):
