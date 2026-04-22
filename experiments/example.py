@@ -84,19 +84,19 @@ for i in tqdm(range(10)):
     X_faa   = S_faa @ faa.archetypes_
 
     # FairAA_Adversarial ──────────────────────────────────────────────────────
-    adv = FairAA_Adversarial(**base_params, lambda_=10, random_state=i)
-    adv.fit(X, z=y)
-    S_adv   = adv.transform(X, y)
-    S_0_adv = adv.transform(X_0, y_0)
-    S_1_adv = adv.transform(X_1, y_1)
+    adv = FairAA_Adversarial(**base_params, fairness_const=10, random_state=i)
+    adv.fit(X, Z=y)
+    S_adv   = adv.transform(X, Z=y)
+    S_0_adv = adv.transform(X_0, Z=y_0)
+    S_1_adv = adv.transform(X_1, Z=y_1)
     X_adv   = S_adv @ adv.archetypes_
 
     # FairAA_MMD ──────────────────────────────────────────────────────────────
-    # mmd_m = FairAA_MMD(**mmd_params, lambda_=1, random_state=i)
-    # mmd_m.fit(X, z=z_i)
-    # S_mmd   = mmd_m.transform(X, z_i)
-    # S_0_mmd = mmd_m.transform(X_0, z_0i)
-    # S_1_mmd = mmd_m.transform(X_1, z_1i)
+    # mmd_m = FairAA_MMD(**mmd_params, fairness_const=1, random_state=i)
+    # mmd_m.fit(X, Z=z_i)
+    # S_mmd   = mmd_m.transform(X, Z=z_i)
+    # S_0_mmd = mmd_m.transform(X_0, Z=z_0i)
+    # S_1_mmd = mmd_m.transform(X_1, Z=z_1i)
     # X_mmd   = S_mmd @ mmd_m.archetypes_
 
     # ── Metrics ───────────────────────────────────────────────────────────────
