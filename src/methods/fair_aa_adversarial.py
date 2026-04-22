@@ -17,7 +17,7 @@ class FairAA_Adversarial(TransformerMixin, BaseEstimator):
 
     Solves the minimax problem::
 
-        min_{A,B} max_{W,b}  ||X - A B X||_F^2  +  lambda_ * sum_i log p(z_i | W @ a_i + b)
+        min_{A,B} max_{W,b}  ||X - A B X||_F^2  +  fairness_const * sum_i log p(z_i | W @ a_i + b)
 
     where p(z_i | ...) is the sigmoid (logistic) function.
 
@@ -25,7 +25,7 @@ class FairAA_Adversarial(TransformerMixin, BaseEstimator):
     ----------
     n_archetypes : int
         Number of archetypes.
-    lambda_ : float, default=1.0
+    fairness_const : float, default=1.0
         Fairness regularisation weight.
     n_adv_steps : int, default=5
         Adversary gradient-ascent steps per main iteration.
@@ -56,7 +56,7 @@ class FairAA_Adversarial(TransformerMixin, BaseEstimator):
 
     _parameter_constraints: dict = {
         "n_archetypes": [Interval(Integral, 1, None, closed="left")],
-        "lambda_": [Interval(Real, 0, None, closed="left")],
+        "fairness_const": [Interval(Real, 0, None, closed="left")],
         "n_adv_steps": [Interval(Integral, 1, None, closed="left")],
         "lr_adv": [Interval(Real, 0, None, closed="neither")],
         "max_iter": [Interval(Integral, 1, None, closed="left")],
@@ -77,7 +77,7 @@ class FairAA_Adversarial(TransformerMixin, BaseEstimator):
         self,
         n_archetypes,
         *,
-        lambda_=1.0,
+        fairness_const=1.0,
         n_adv_steps=5,
         lr_adv=0.01,
         max_iter=300,
@@ -92,7 +92,7 @@ class FairAA_Adversarial(TransformerMixin, BaseEstimator):
         random_state=None,
     ):
         self.n_archetypes = n_archetypes
-        self.lambda_ = lambda_
+        self.fairness_const = fairness_const
         self.n_adv_steps = n_adv_steps
         self.lr_adv = lr_adv
         self.max_iter = max_iter
@@ -139,15 +139,15 @@ class FairAA_Adversarial(TransformerMixin, BaseEstimator):
 
         return A, B, archetypes
 
-    def fit(self, X, y=None, z=None):
-        self.fit_transform(X, y, z)
+    def fit(self, X, y=None, Z=None):
+        self.fit_transform(X, y, Z)
         return self
 
-    def transform(self, X, z):
+    def transform(self, X, Z):
         check_is_fitted(self)
         X = validate_data(self, X, dtype=[np.float64, np.float32], reset=False)
         X = np.ascontiguousarray(X)
-        z = np.asarray(z, dtype=X.dtype)
+        z = np.asarray(Z, dtype=X.dtype)
         archetypes = self.archetypes_
 
         if self.n_archetypes_ == 1:
@@ -164,7 +164,7 @@ class FairAA_Adversarial(TransformerMixin, BaseEstimator):
             X,
             z,
             archetypes,
-            lambda_=self.lambda_,
+            fairness_const=self.fairness_const,
             n_adv_steps=self.n_adv_steps,
             lr_adv=self.lr_adv,
             max_iter=self.max_iter,
@@ -174,11 +174,11 @@ class FairAA_Adversarial(TransformerMixin, BaseEstimator):
         return A
 
     @_fit_context(prefer_skip_nested_validation=True)
-    def fit_transform(self, X, y=None, z=None, **params):
+    def fit_transform(self, X, y=None, Z=None, **params):
         X = validate_data(self, X, dtype=[np.float64, np.float32])
         self._check_params_vs_data(X)
         X = np.ascontiguousarray(X)
-        z = np.asarray(z, dtype=X.dtype)
+        z = np.asarray(Z, dtype=X.dtype)
 
         if self.n_archetypes == 1:
             n_samples = X.shape[0]
@@ -215,7 +215,7 @@ class FairAA_Adversarial(TransformerMixin, BaseEstimator):
                     B,
                     z,
                     archetypes,
-                    lambda_=self.lambda_,
+                    fairness_const=self.fairness_const,
                     n_adv_steps=self.n_adv_steps,
                     lr_adv=self.lr_adv,
                     max_iter=self.max_iter,
@@ -272,43 +272,43 @@ def _log_likelihood(z, A, W, b):
 # ── Fit-transform entry points (mirrors pgd_fit_transform / pseudo_pgd_fit_transform) ──
 
 
-def adv_transform(X, z, archetypes, *, lambda_, n_adv_steps, lr_adv, max_iter, tol, **params):
+def adv_transform(X, z, archetypes, *, fairness_const, n_adv_steps, lr_adv, max_iter, tol, **params):
     A = X @ np.linalg.pinv(archetypes)
     unit_simplex_proj(A)
     A, _, _, _, _, _, _, _ = _adv_optimize_aa(
         X, A, None, z, archetypes,
-        lambda_=lambda_, n_adv_steps=n_adv_steps, lr_adv=lr_adv,
+        fairness_const=fairness_const, n_adv_steps=n_adv_steps, lr_adv=lr_adv,
         max_iter=max_iter, tol=tol, verbose=False,
         update_B=False, pseudo_pgd=False, **params,
     )
     return A
 
 
-def adv_pseudo_transform(X, z, archetypes, *, lambda_, n_adv_steps, lr_adv, max_iter, tol, **params):
+def adv_pseudo_transform(X, z, archetypes, *, fairness_const, n_adv_steps, lr_adv, max_iter, tol, **params):
     A = X @ np.linalg.pinv(archetypes)
     l1_normalize_proj(A)
     A, _, _, _, _, _, _, _ = _adv_optimize_aa(
         X, A, None, z, archetypes,
-        lambda_=lambda_, n_adv_steps=n_adv_steps, lr_adv=lr_adv,
+        fairness_const=fairness_const, n_adv_steps=n_adv_steps, lr_adv=lr_adv,
         max_iter=max_iter, tol=tol, verbose=False,
         update_B=False, pseudo_pgd=True, **params,
     )
     return A
 
 
-def adv_fit_transform(X, A, B, z, archetypes, *, lambda_, n_adv_steps, lr_adv, max_iter, tol, verbose, **params):
+def adv_fit_transform(X, A, B, z, archetypes, *, fairness_const, n_adv_steps, lr_adv, max_iter, tol, verbose, **params):
     return _adv_optimize_aa(
         X, A, B, z, archetypes,
-        lambda_=lambda_, n_adv_steps=n_adv_steps, lr_adv=lr_adv,
+        fairness_const=fairness_const, n_adv_steps=n_adv_steps, lr_adv=lr_adv,
         max_iter=max_iter, tol=tol, verbose=verbose,
         update_B=True, pseudo_pgd=False, **params,
     )
 
 
-def adv_pseudo_fit_transform(X, A, B, z, archetypes, *, lambda_, n_adv_steps, lr_adv, max_iter, tol, verbose, **params):
+def adv_pseudo_fit_transform(X, A, B, z, archetypes, *, fairness_const, n_adv_steps, lr_adv, max_iter, tol, verbose, **params):
     return _adv_optimize_aa(
         X, A, B, z, archetypes,
-        lambda_=lambda_, n_adv_steps=n_adv_steps, lr_adv=lr_adv,
+        fairness_const=fairness_const, n_adv_steps=n_adv_steps, lr_adv=lr_adv,
         max_iter=max_iter, tol=tol, verbose=verbose,
         update_B=True, pseudo_pgd=True, **params,
     )
@@ -324,7 +324,7 @@ def _adv_optimize_aa(
     z,
     archetypes,
     *,
-    lambda_,
+    fairness_const,
     n_adv_steps,
     lr_adv,
     max_iter,
@@ -357,7 +357,7 @@ def _adv_optimize_aa(
     B_new = np.empty_like(B) if B is not None else None
 
     rec0 = float(squared_norm(ABX))
-    adv0 = lambda_ * _log_likelihood(z, A, W, b)
+    adv0 = fairness_const * _log_likelihood(z, A, W, b)
     rss = rec0 + adv0
 
     loss_history = {
@@ -380,10 +380,15 @@ def _adv_optimize_aa(
             W = W + lr_adv * grad_W
             b = b + lr_adv * grad_b
 
+        # Recalculate rss with updated W, b so the line search has a valid baseline
+        ABX = np.matmul(A, BX, out=ABX)
+        ABX -= X
+        rss = float(squared_norm(ABX)) + fairness_const * _log_likelihood(z, A, W, b)
+
         # ── Update A ──────────────────────────────────────────────────────────
         rss, step_size_A = _adv_update_A_inplace(
             X, A, z, W, b, BX, ABX, XXtBt, BXXtBt,
-            A_grad, A_new, pseudo_pgd, step_size_A, lambda_,
+            A_grad, A_new, pseudo_pgd, step_size_A, fairness_const,
             max_iter_optimizer, beta, rss,
         )
 
@@ -391,13 +396,13 @@ def _adv_optimize_aa(
         if update_B:
             rss, step_size_B = _adv_update_B_inplace(
                 X, A, B, z, W, b, BX, XXt, ABX, AtXXt, XXtBt, BXXtBt,
-                B_grad, B_new, pseudo_pgd, step_size_B, lambda_,
+                B_grad, B_new, pseudo_pgd, step_size_B, fairness_const,
                 max_iter_optimizer, beta, rss,
             )
 
         convergence = abs(loss_history["total"][-1] - rss) < tol
         rec = float(squared_norm(A @ BX - X))
-        adv = lambda_ * _log_likelihood(z, A, W, b)
+        adv = fairness_const * _log_likelihood(z, A, W, b)
         loss_history["total"].append(rss)
         loss_history["reconstruction"].append(rec)
         loss_history["adversary"].append(adv)
@@ -415,16 +420,16 @@ def _adv_optimize_aa(
 
 def _adv_update_A_inplace(
     X, A, z, W, b, BX, ABX, XXtBt, BXXtBt,
-    A_grad, A_new, pseudo_pgd, step_size_A, lambda_,
+    A_grad, A_new, pseudo_pgd, step_size_A, fairness_const,
     max_iter_optimizer, beta, rss,
 ):
     # Reconstruction gradient (identical to FairAA)
     A_grad = np.matmul(A, BXXtBt, out=A_grad)
     A_grad -= XXtBt
-    # Adversarial gradient: d/dA [+lambda_ * sum log p(z | W a + b)]
+    # Adversarial gradient: d/dA [fairness_const * sum log p(z | W a + b)]
     logits = A @ W.T + b      # (n, 1)
     sigma = _sigmoid(logits)  # (n, 1)
-    A_grad += lambda_ * np.outer(z - sigma.flatten(), W.flatten())
+    A_grad += fairness_const * np.outer(z - sigma.flatten(), W.flatten())
 
     if pseudo_pgd:
         A_grad -= np.expand_dims(np.einsum("ij,ij->i", A, A_grad), axis=1)
@@ -439,10 +444,10 @@ def _adv_update_A_inplace(
         project(A_new)
         ABX = np.matmul(A_new, BX, out=ABX)
         ABX -= X
-        rss_new = float(squared_norm(ABX)) + lambda_ * _log_likelihood(z, A_new, W, b)
+        rss_new = float(squared_norm(ABX)) + fairness_const * _log_likelihood(z, A_new, W, b)
         improved = rss_new < rss
         if improved:
-            step_size_A /= beta
+            step_size_A = min(step_size_A / beta, 1e6)
             break
         step_size_A *= beta
 
@@ -455,7 +460,7 @@ def _adv_update_A_inplace(
 
 def _adv_update_B_inplace(
     X, A, B, z, W, b, BX, XXt, ABX, AtXXt, XXtBt, BXXtBt,
-    B_grad, B_new, pseudo_pgd, step_size_B, lambda_,
+    B_grad, B_new, pseudo_pgd, step_size_B, fairness_const,
     max_iter_optimizer, beta, rss,
 ):
     # Reconstruction gradient only — adversary does not depend on B
@@ -470,7 +475,7 @@ def _adv_update_B_inplace(
         project = unit_simplex_proj
 
     # Precompute adversary term (constant during B update — A is fixed)
-    adv_term = lambda_ * _log_likelihood(z, A, W, b)
+    adv_term = fairness_const * _log_likelihood(z, A, W, b)
 
     improved = False
     for _ in range(max_iter_optimizer):
@@ -482,7 +487,7 @@ def _adv_update_B_inplace(
         rss_new = float(squared_norm(ABX)) + adv_term
         improved = rss_new < rss
         if improved:
-            step_size_B /= beta
+            step_size_B = min(step_size_B / beta, 1e6)
             break
         step_size_B *= beta
 
