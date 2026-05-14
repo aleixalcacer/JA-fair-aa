@@ -151,4 +151,38 @@ def demographic_parity(H, z):
     mean_0 = H[z == 0].mean(axis=0)
     mean_1 = H[z == 1].mean(axis=0)
     return float(np.mean(np.abs(mean_0 - mean_1)))
+
+
+def dp_gap(y_true, y_pred, a):
+    """Prediction-level demographic parity gap: |P(Ŷ=1|A=0) − P(Ŷ=1|A=1)|."""
+    y_true = np.asarray(y_true)
+    y_pred = np.asarray(y_pred)
+    a = np.asarray(a)
+    return float(abs(y_pred[a == 0].mean() - y_pred[a == 1].mean()))
+
+
+def _tpr_fpr(y_true, y_pred):
+    y_true = np.asarray(y_true).astype(int)
+    y_pred = np.asarray(y_pred).astype(int)
+    pos = y_true == 1
+    neg = y_true == 0
+    tpr = y_pred[pos].mean() if pos.any() else 0.0
+    fpr = y_pred[neg].mean() if neg.any() else 0.0
+    return float(tpr), float(fpr)
+
+
+def eo_gap(y_true, y_pred, a):
+    """Equalized-odds gap: max(|TPR_0−TPR_1|, |FPR_0−FPR_1|)."""
+    a = np.asarray(a)
+    tpr_0, fpr_0 = _tpr_fpr(np.asarray(y_true)[a == 0], np.asarray(y_pred)[a == 0])
+    tpr_1, fpr_1 = _tpr_fpr(np.asarray(y_true)[a == 1], np.asarray(y_pred)[a == 1])
+    return float(max(abs(tpr_0 - tpr_1), abs(fpr_0 - fpr_1)))
+
+
+def eopp_gap(y_true, y_pred, a):
+    """Equal-opportunity gap: |TPR_0 − TPR_1|."""
+    a = np.asarray(a)
+    tpr_0, _ = _tpr_fpr(np.asarray(y_true)[a == 0], np.asarray(y_pred)[a == 0])
+    tpr_1, _ = _tpr_fpr(np.asarray(y_true)[a == 1], np.asarray(y_pred)[a == 1])
+    return float(abs(tpr_0 - tpr_1))
  
