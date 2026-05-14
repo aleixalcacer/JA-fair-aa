@@ -82,7 +82,7 @@ Implemented in [`src/metrics.py`](src/metrics.py). Hyperparameters used in every
 | Metric | Function | Hyperparameters |
 |---|---|---|
 | Explained variance | `explained_variance(X, X_hat)` | reconstruction-error / total-variance ratio |
-| MMD (RBF) | `mmd_rbf(X, Y, sigmas="median")` | **Multi-kernel sum** of RBF kernels with `σ ∈ {0.5·σ_med, σ_med, 2·σ_med}`, where `σ_med` is the median pairwise distance on the pooled `X ∪ Y` (median heuristic). `gamma = 1 / (2·σ²)`. Implemented via `sklearn.metrics.pairwise.rbf_kernel`. |
+| MMD (RBF) | `mmd_rbf(X, Y, sigmas` | **Multi-kernel sum** of RBF kernels with `sigmas` bandwiths. Implemented via `sklearn.metrics.pairwise.rbf_kernel`. |
 | Linear separability | `linear_separability(H, z, n_splits=5, test_size=0.3, random_state=0)` | Probe: `LogisticRegression(max_iter=1000, random_state=seed)` (scikit-learn defaults otherwise: `penalty="l2"`, `C=1.0`, `solver="lbfgs"`). 5 stratified shuffle splits; score is mean balanced accuracy. |
 | Nonlinear separability | `nonlinear_separability(H, z, n_splits=5, test_size=0.3, random_state=0)` | Probe: `RandomForestClassifier(n_estimators=200, random_state=seed)` (other parameters at scikit-learn defaults). 5 stratified shuffle splits; mean balanced accuracy. |
 | Demographic parity (representation) | `demographic_parity(H, z)` | mean-difference of loadings between groups, averaged over archetypes |
@@ -110,7 +110,6 @@ Sweep settings:
 | `simple_real.py` (real) | chosen per-dataset by AA scree-elbow on `K ∈ [1, 10]` averaged over 3 inits | `N_SEEDS = 25` | `[0, 0.03, 0.1, 0.3, 1, 3, 10, 30, 100]` |
 | `extensions.py` | 3–4 depending on scenario | 5 inits | scenario-specific (`fair_const` in source) |
 
-`FairPCA_AA` translates λ to its `tradeoff_param ∈ [0, 1]` via `tp = λ / (1 + λ)`. `fair_aa_3moment` uses `alpha_2 = alpha_3 = 0.1` with `balance_orders=True`. `fair_aa_adversarial` uses `n_adv_steps = 1`, `lr_adv = 1e-2`.
 
 ## Reproducing the paper
 
