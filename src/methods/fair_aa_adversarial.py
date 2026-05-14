@@ -139,8 +139,8 @@ class FairAA_Adversarial(TransformerMixin, BaseEstimator):
 
         return A, B, archetypes
 
-    def fit(self, X, y=None, Z=None):
-        self.fit_transform(X, y, Z)
+    def fit(self, X, y=None, Z=None, *, S_init=None, C_init=None):
+        self.fit_transform(X, y, Z, S_init=S_init, C_init=C_init)
         return self
 
     def transform(self, X, Z):
@@ -174,7 +174,7 @@ class FairAA_Adversarial(TransformerMixin, BaseEstimator):
         return A
 
     @_fit_context(prefer_skip_nested_validation=True)
-    def fit_transform(self, X, y=None, Z=None, **params):
+    def fit_transform(self, X, y=None, Z=None, S_init=None, C_init=None, **params):
         X = validate_data(self, X, dtype=[np.float64, np.float32])
         self._check_params_vs_data(X)
         X = np.ascontiguousarray(X)
@@ -202,19 +202,13 @@ class FairAA_Adversarial(TransformerMixin, BaseEstimator):
             rng = check_random_state(self.random_state)
 
             best_rss = np.inf
-            for i in range(self.n_init):
-                A, B, archetypes = self._init_archetypes(X, rng)
 
-                if self.save_init:
-                    self.B_init_ = B.copy()
-                    self.archetypes_init_ = archetypes.copy()
-
+            if S_init is not None:
+                A = np.array(S_init, dtype=X.dtype)
+                B = np.array(C_init, dtype=X.dtype)
+                archetypes = B @ X
                 A, B, archetypes, W, b, n_iter, loss_history, _ = fit_transform_func(
-                    X,
-                    A,
-                    B,
-                    z,
-                    archetypes,
+                    X, A, B, z, archetypes,
                     fairness_const=self.fairness_const,
                     n_adv_steps=self.n_adv_steps,
                     lr_adv=self.lr_adv,
@@ -223,17 +217,33 @@ class FairAA_Adversarial(TransformerMixin, BaseEstimator):
                     verbose=self.verbose,
                     **method_params,
                 )
+                best_rss = loss_history["total"][-1]
+                A_ = A; B_ = B; archetypes_ = archetypes
+                W_ = W; b_ = b; n_iter_ = n_iter; loss_history_ = loss_history
+            else:
+                for i in range(self.n_init):
+                    A, B, archetypes = self._init_archetypes(X, rng)
 
-                rss = loss_history["total"][-1]
-                if i == 0 or rss < best_rss:
-                    best_rss = rss
-                    A_ = A
-                    B_ = B
-                    archetypes_ = archetypes
-                    W_ = W
-                    b_ = b
-                    n_iter_ = n_iter
-                    loss_history_ = loss_history
+                    if self.save_init:
+                        self.B_init_ = B.copy()
+                        self.archetypes_init_ = archetypes.copy()
+
+                    A, B, archetypes, W, b, n_iter, loss_history, _ = fit_transform_func(
+                        X, A, B, z, archetypes,
+                        fairness_const=self.fairness_const,
+                        n_adv_steps=self.n_adv_steps,
+                        lr_adv=self.lr_adv,
+                        max_iter=self.max_iter,
+                        tol=self.tol,
+                        verbose=self.verbose,
+                        **method_params,
+                    )
+
+                    rss = loss_history["total"][-1]
+                    if i == 0 or rss < best_rss:
+                        best_rss = rss
+                        A_ = A; B_ = B; archetypes_ = archetypes
+                        W_ = W; b_ = b; n_iter_ = n_iter; loss_history_ = loss_history
 
         self.A_ = A_
         self.B_ = B_
