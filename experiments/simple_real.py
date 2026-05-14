@@ -342,7 +342,7 @@ for ds_idx, ds in enumerate(DATASETS, 1):
     _t0_ds = time.perf_counter()
 
     print(f"[{ds}] loading (max_samples={MAX_SAMPLES})…")
-    X, y, a, _ = dataset_registry.load(ds, n_max=MAX_SAMPLES, seed=0)
+    X, y, a, meta = dataset_registry.load(ds, n_max=MAX_SAMPLES, seed=0)
     print(f"[{ds}] X={X.shape}, P(Y=1)={y.mean():.3f}, P(A=1)={a.mean():.3f}")
 
     csv_path = out_data / "raw_results_simple.csv"
