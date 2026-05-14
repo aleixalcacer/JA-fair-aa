@@ -14,4 +14,6 @@ dependencies = [
     "pandas",
     "archetypes",
     "ipykernel",
+    "ucimlrepo>=0.0.7",
+    "fairlearn>=0.12.0",
 ]
